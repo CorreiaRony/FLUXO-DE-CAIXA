@@ -1,0 +1,71 @@
+name: Corrigir botão Analisar divergência
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fix-analyze-button.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corrigir fluxo pós-importação
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          s=s.replace("onclick=\"showPage('dias')\">Analisar divergência", "onclick=\"analyzeNow()\">Analisar divergência", 1)
+
+          marker="function showPage(id){const page=document.getElementById(id);if(!page)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));page.classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}"
+          helper=r'''function ensurePeriodsFromImportedData(){
+            const all=[...state.normalized.omie,...state.normalized.model];
+            const months=[...new Set(all.map(x=>monthKeyFromDate(x.date)).filter(Boolean))].sort();
+            if(!months.length)return [];
+            for(const k of months){
+              let m=state.months.find(x=>x.month===k);
+              if(!m){m=defaultMonth(k);state.months.push(m)}
+              const calc=(rows,type)=>rows.filter(x=>monthKeyFromDate(x.date)===k&&x.type===type).reduce((sum,x)=>sum+x.value,0);
+              const oe=calc(state.normalized.omie,'Entrada'),os=calc(state.normalized.omie,'Saída'),me=calc(state.normalized.model,'Entrada'),ms=calc(state.normalized.model,'Saída');
+              m.omie.entradas=oe;m.omie.saidas=os;m.model.entradas=me;m.model.saidas=ms;
+              if(!Number.isFinite(m.omie.saldoInicial))m.omie.saldoInicial=0;
+              if(!Number.isFinite(m.model.saldoInicial))m.model.saldoInicial=m.omie.saldoInicial;
+              m.omie.saldoFinal=calcFinal(m.omie);m.model.saldoFinal=calcFinal(m.model)
+            }
+            state.months.sort((a,b)=>a.month.localeCompare(b.month));
+            return months
+          }
+          function analyzeNow(){
+            rebuild();
+            const confirmed=Object.values(state.files).flat().filter(f=>f.confirmed).length;
+            if(!confirmed){alert('Importe e confirme as bases Omie e Modelagem antes de analisar.');showPage('importar');return}
+            if(!state.normalized.omie.length||!state.normalized.model.length){alert('As bases foram importadas, mas não existem lançamentos válidos dos dois lados para comparar. Revise o mapeamento e a confirmação dos arquivos.');showPage('importar');return}
+            const periods=ensurePeriodsFromImportedData();
+            if(!periods.length){alert('Não foi possível identificar nenhum período nas bases importadas.');showPage('importar');return}
+            if(!state.activeMonth||!periods.includes(state.activeMonth))state.activeMonth=periods[0];
+            saveMonths();
+            renderAll();
+            showPage('dias')
+          }
+          '''
+          if 'function analyzeNow()' not in s:
+            s=s.replace(marker, marker+'\n'+helper,1)
+
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validar e publicar
+        run: |
+          grep -q 'function analyzeNow()' index.html
+          grep -q 'ensurePeriodsFromImportedData' index.html
+          grep -q 'onclick="analyzeNow()">Analisar divergência' index.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Corrige análise após importação e cria períodos automaticamente'
+          git push origin main

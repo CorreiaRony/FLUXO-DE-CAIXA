@@ -77,7 +77,7 @@ input[type="number"]{min-width:150px}
 <div class="global-bar">
   <div class="global-period" id="globalPeriod">Nenhum período</div>
   <div class="search-wrap"><input class="global-search" id="globalSearch" placeholder="Buscar fornecedor, NF, valor, documento..." oninput="globalSearchRows(this.value)"><div id="searchResults" class="search-results"></div></div>
-  <div class="global-actions"><span class="close-status" id="globalStatus">SEM DADOS</span><button class="action primary" onclick="showPage('dias')">Analisar divergência</button><button class="collapse-btn" onclick="toggleSidebar()" title="Recolher menu">☰</button></div>
+  <div class="global-actions"><span class="close-status" id="globalStatus">SEM DADOS</span><button class="action primary" onclick="analyzeNow()">Analisar divergência</button><button class="collapse-btn" onclick="toggleSidebar()" title="Recolher menu">☰</button></div>
 </div>
 
 <section id="dashboard" class="page active">
@@ -458,6 +458,36 @@ function renderTransfer(){
 }
 function renderAll(){renderSelectors();renderMonths();renderDashboard();renderDias();renderLancamentos();renderFiles();renderMap();renderTransfer()}
 function showPage(id){const page=document.getElementById(id);if(!page)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));page.classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
+function ensurePeriodsFromImportedData(){
+  const all=[...state.normalized.omie,...state.normalized.model];
+  const months=[...new Set(all.map(x=>monthKeyFromDate(x.date)).filter(Boolean))].sort();
+  if(!months.length)return [];
+  for(const k of months){
+    let m=state.months.find(x=>x.month===k);
+    if(!m){m=defaultMonth(k);state.months.push(m)}
+    const calc=(rows,type)=>rows.filter(x=>monthKeyFromDate(x.date)===k&&x.type===type).reduce((sum,x)=>sum+x.value,0);
+    const oe=calc(state.normalized.omie,'Entrada'),os=calc(state.normalized.omie,'Saída'),me=calc(state.normalized.model,'Entrada'),ms=calc(state.normalized.model,'Saída');
+    m.omie.entradas=oe;m.omie.saidas=os;m.model.entradas=me;m.model.saidas=ms;
+    if(!Number.isFinite(m.omie.saldoInicial))m.omie.saldoInicial=0;
+    if(!Number.isFinite(m.model.saldoInicial))m.model.saldoInicial=m.omie.saldoInicial;
+    m.omie.saldoFinal=calcFinal(m.omie);m.model.saldoFinal=calcFinal(m.model)
+  }
+  state.months.sort((a,b)=>a.month.localeCompare(b.month));
+  return months
+}
+function analyzeNow(){
+  rebuild();
+  const confirmed=Object.values(state.files).flat().filter(f=>f.confirmed).length;
+  if(!confirmed){alert('Importe e confirme as bases Omie e Modelagem antes de analisar.');showPage('importar');return}
+  if(!state.normalized.omie.length||!state.normalized.model.length){alert('As bases foram importadas, mas não existem lançamentos válidos dos dois lados para comparar. Revise o mapeamento e a confirmação dos arquivos.');showPage('importar');return}
+  const periods=ensurePeriodsFromImportedData();
+  if(!periods.length){alert('Não foi possível identificar nenhum período nas bases importadas.');showPage('importar');return}
+  if(!state.activeMonth||!periods.includes(state.activeMonth))state.activeMonth=periods[0];
+  saveMonths();
+  renderAll();
+  showPage('dias')
+}
+
 document.querySelectorAll('nav button[data-page]').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function toggleSidebar(){document.querySelector('.app').classList.toggle('collapsed');localStorage.setItem('cc_sidebar',document.querySelector('.app').classList.contains('collapsed')?'1':'0')}
 function globalSearchRows(q){q=NT(q);if(q.length<2){searchResults.classList.remove('open');searchResults.innerHTML='';return}const rows=[...state.normalized.omie,...state.normalized.model].filter(x=>NT([x.party,x.doc,x.desc,x.value].join(' ')).includes(q)).slice(0,30);searchResults.innerHTML=rows.length?rows.map(x=>`<div class="search-hit" onclick="searchResults.classList.remove('open');openDay('${x.date}')"><strong>${ESC(x.party||x.desc||'Sem descrição')}</strong><div class="small muted">${x.side} • ${x.date} • ${BRL(x.value)} • ${ESC(x.doc)}</div></div>`).join(''):'<div class="search-hit muted">Nenhum lançamento encontrado nas bases confirmadas.</div>';searchResults.classList.add('open')}

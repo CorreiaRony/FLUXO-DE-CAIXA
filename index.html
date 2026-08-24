@@ -7,87 +7,93 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#f4f6f8;--panel:#fff;--text:#132238;--muted:#6b7280;--line:#e5e7eb;
-  --nav:#0f172a;--nav2:#1e293b;--ok:#15803d;--bad:#b91c1c;--warn:#b45309;--info:#1d4ed8;
+  --bg:#0b0f14;--panel:#161d27;--panel2:#111827;--hover:#202a38;--text:#f8fafc;--muted:#94a3b8;--line:#263244;
+  --nav:#0b0f14;--nav2:#202a38;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--info:#3b82f6;--smart:#8b5cf6;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
-.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
-aside{background:var(--nav);color:#fff;padding:20px 14px;position:sticky;top:0;height:100vh}
+.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh;transition:grid-template-columns .2s ease}.app.collapsed{grid-template-columns:76px 1fr}
+aside{background:var(--nav);color:#fff;padding:18px 12px;position:sticky;top:0;height:100vh;border-right:1px solid var(--line);overflow:auto}
 .brand{font-weight:800;font-size:18px;margin:4px 8px 18px}
 .brand span{display:block;font-size:12px;color:#94a3b8;font-weight:500;margin-top:3px}
-nav button{display:block;width:100%;border:0;background:transparent;color:#cbd5e1;text-align:left;padding:11px 12px;border-radius:8px;margin:2px 0;cursor:pointer}
+nav .nav-group{font-size:10px;color:#64748b;font-weight:800;letter-spacing:.12em;margin:18px 10px 6px}nav button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:transparent;color:#cbd5e1;text-align:left;padding:10px 12px;border-radius:8px;margin:2px 0;cursor:pointer;white-space:nowrap}nav button .ico{width:18px;text-align:center;color:#94a3b8}nav button.soon{opacity:.4;cursor:not-allowed}
 nav button:hover,nav button.active{background:var(--nav2);color:#fff}
-main{padding:24px;overflow:auto}
+main{padding:0 26px 28px;overflow:auto;min-width:0}.global-bar{height:66px;position:sticky;top:0;z-index:20;background:rgba(11,15,20,.92);backdrop-filter:blur(12px);display:grid;grid-template-columns:minmax(130px,.7fr) minmax(260px,1.6fr) minmax(240px,1fr);gap:16px;align-items:center;border-bottom:1px solid var(--line);margin-bottom:20px}.global-period{font-weight:800}.search-wrap{position:relative}.global-search{width:100%;background:#111827;color:var(--text);border-color:var(--line)}.global-actions{display:flex;justify-content:flex-end;align-items:center;gap:9px}.close-status{font-size:11px;font-weight:800;padding:7px 9px;border-radius:999px;background:#331b20;color:#fca5a5}.collapse-btn{border:1px solid var(--line);background:var(--panel);color:var(--text);height:34px;width:34px;border-radius:8px;cursor:pointer}.app.collapsed .brand span,.app.collapsed .brand strong,.app.collapsed nav button .nav-label,.app.collapsed nav .nav-group{display:none}.app.collapsed .brand{text-align:center;margin-left:0;margin-right:0}.app.collapsed nav button{justify-content:center}
 h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:0 0 12px}h3{font-size:14px;margin:0 0 8px}
 .muted{color:var(--muted)}.small{font-size:12px}
 .topbar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px}
 .grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
 .kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.kpi .value{font-size:23px;font-weight:800;margin-top:7px}
 .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.info{color:var(--info)}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
-input,select,button.action{height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;background:#fff}
-button.action{cursor:pointer;font-weight:700}button.primary{background:#111827;color:#fff;border-color:#111827}button.danger{background:#fff;color:#b91c1c;border-color:#fecaca}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{text-align:left;background:#f8fafc;color:#475569;position:sticky;top:0;z-index:1}
+input,select,button.action{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--panel2);color:var(--text)}
+button.action{cursor:pointer;font-weight:700}button.primary{background:#e2e8f0;color:#0f172a;border-color:#e2e8f0}button.danger{background:transparent;color:#fca5a5;border-color:#7f1d1d}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{text-align:left;background:#111827;color:#94a3b8;position:sticky;top:0;z-index:1}
 .right{text-align:right}.center{text-align:center}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
-.b-ok{background:#dcfce7;color:#166534}.b-bad{background:#fee2e2;color:#991b1b}.b-warn{background:#ffedd5;color:#9a3412}.b-info{background:#dbeafe;color:#1e40af}.b-muted{background:#f1f5f9;color:#475569}
+.b-ok{background:#123521;color:#86efac}.b-bad{background:#3b1d24;color:#fca5a5}.b-warn{background:#3d2b12;color:#fcd34d}.b-info{background:#172e52;color:#93c5fd}.b-muted{background:#202a38;color:#cbd5e1}
 .page{display:none}.page.active{display:block}
-.drop{border:2px dashed #cbd5e1;border-radius:12px;padding:18px;background:#f8fafc}
+.drop{border:2px dashed #334155;border-radius:12px;padding:18px;background:#111827}
 .file-item{display:flex;justify-content:space-between;gap:10px;align-items:center;border-top:1px solid var(--line);padding:8px 0}
-.note{background:#f8fafc;border-left:4px solid #cbd5e1;padding:10px 12px;border-radius:8px}
+.note{background:#111827;border-left:4px solid #475569;padding:10px 12px;border-radius:8px}
+.alert{padding:11px 12px;border-radius:8px;margin:10px 0;font-size:13px}.alert.bad{background:#fef2f2;border:1px solid #fecaca}.alert.warn{background:#fff7ed;border:1px solid #fed7aa}.alert.ok{background:#f0fdf4;border:1px solid #bbf7d0}
+.preview{overflow:auto;max-height:290px;border:1px solid var(--line);border-radius:8px}.preview th{top:0}.quality-list{margin:8px 0 0;padding-left:18px}.mapping-card.pending{border-color:#f59e0b}.mapping-card.confirmed{border-color:#166534}
 .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:#111827}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.pane{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:55vh}
-.pane h3{position:sticky;top:0;background:#f8fafc;padding:10px;margin:0;border-bottom:1px solid var(--line)}
-.clickable{cursor:pointer}.clickable:hover{background:#f8fafc}
+.pane h3{position:sticky;top:0;background:#111827;padding:10px;margin:0;border-bottom:1px solid var(--line)}
+.clickable{cursor:pointer}.clickable:hover{background:#202a38}
 input[type="number"]{min-width:150px}
-.month-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.month-tab{padding:7px 10px;border:1px solid #cbd5e1;border-radius:999px;background:white;cursor:pointer}.month-tab.active{background:#111827;color:white;border-color:#111827}
-@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr}.app{grid-template-columns:210px 1fr}.split{grid-template-columns:1fr}}
+.month-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.month-tab{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--text);cursor:pointer}.month-tab.active{background:#e2e8f0;color:#0f172a;border-color:#e2e8f0}
+.hero{position:relative;overflow:hidden;min-height:350px;padding:36px;border:1px solid #2b3850;border-radius:18px;background:radial-gradient(circle at 78% 30%,rgba(139,92,246,.22),transparent 34%),linear-gradient(120deg,#161d27 0%,#111827 70%,#0f172a 100%);display:flex;align-items:center}.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,rgba(59,130,246,.06));pointer-events:none}.hero-content{position:relative;z-index:1;max-width:780px}.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8;font-weight:800}.hero h1{font-size:34px;margin:8px 0 10px}.hero-value{font-size:48px;line-height:1;font-weight:900;margin:15px 0 5px}.hero-label{color:var(--muted)}.hero-balances{display:flex;gap:28px;margin:20px 0}.hero-balances strong{display:block;font-size:18px;margin-top:3px}.hero-stats{display:flex;gap:10px;flex-wrap:wrap;margin:17px 0}.stat-pill{background:rgba(15,23,42,.7);border:1px solid var(--line);border-radius:999px;padding:8px 11px;font-size:12px}.hero-text{color:#cbd5e1;line-height:1.55;max-width:720px}.hero-actions{display:flex;gap:10px;margin-top:22px}.rail-section{margin-top:26px}.rail-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:10px}.rail-head h2{margin:0}.rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(235px,290px);gap:12px;overflow-x:auto;padding:2px 2px 14px;scroll-snap-type:x proximity}.rail-card{scroll-snap-align:start;min-height:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:transform .2s ease,background .2s ease,border-color .2s ease;position:relative}.rail-card:hover{transform:scale(1.025);background:var(--hover);border-color:#3b4c66;z-index:2}.rail-card .big{font-size:23px;font-weight:850;margin:12px 0 7px}.rail-card .meta{font-size:12px;color:var(--muted);line-height:1.5}.rail-card .hover-action{opacity:0;transform:translateY(4px);transition:.2s;margin-top:10px;color:#bfdbfe;font-size:11px;font-weight:800}.rail-card:hover .hover-action{opacity:1;transform:none}.empty-state{grid-column:1/-1;width:100%;min-height:150px;border:1px dashed #334155;border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;padding:26px;color:var(--muted)}.search-results{display:none;position:absolute;left:0;right:0;top:42px;background:#111827;border:1px solid var(--line);border-radius:10px;max-height:310px;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.45);z-index:40}.search-results.open{display:block}.search-hit{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.search-hit:hover{background:var(--hover)}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr}.app{grid-template-columns:210px 1fr}.split{grid-template-columns:1fr}.global-bar{grid-template-columns:1fr 1.5fr}.global-actions .close-status{display:none}.hero{padding:28px}.hero-value{font-size:40px}}
 @media(max-width:760px){.app{grid-template-columns:1fr}aside{position:relative;height:auto}nav{display:flex;overflow:auto}nav button{min-width:165px}main{padding:14px}.g4,.g2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside>
-  <div class="brand">Concilia Caixa<span>Omie × Modelagem</span></div>
+  <div class="brand"><strong>CC</strong><span>Concilia Caixa<br>Omie × Modelagem</span></div>
   <nav>
-    <button class="active" data-page="dashboard">Dashboard</button>
-    <button data-page="consolidado">Consolidado Mensal</button>
-    <button data-page="dias">Divergência por Dia</button>
-    <button data-page="lancamentos">Conciliação de Lançamentos</button>
-    <button data-page="importar">Importar Dados</button>
-    <button data-page="transferencias">Transferências e Ajustes</button>
-    <button data-page="config">Configurações</button>
+    <div class="nav-group">VISÃO GERAL</div>
+    <button class="active" data-page="dashboard"><span class="ico">⌂</span><span class="nav-label">Home</span></button>
+    <button data-page="consolidado"><span class="ico">▤</span><span class="nav-label">Consolidado</span></button>
+    <div class="nav-group">INVESTIGAÇÃO</div>
+    <button data-page="dias"><span class="ico">◫</span><span class="nav-label">Divergência por Dia</span></button>
+    <button class="soon" title="Disponível na Etapa 3"><span class="ico">◎</span><span class="nav-label">Central de Investigação</span></button>
+    <button data-page="lancamentos"><span class="ico">≡</span><span class="nav-label">Lançamentos</span></button>
+    <button class="soon" title="Disponível em etapa futura"><span class="ico">⧉</span><span class="nav-label">Duplicidades</span></button>
+    <div class="nav-group">ANÁLISES</div>
+    <button class="soon"><span class="ico">▥</span><span class="nav-label">DRE de Caixa</span></button>
+    <button class="soon"><span class="ico">◒</span><span class="nav-label">Pareto / ABC</span></button>
+    <button data-page="transferencias"><span class="ico">⇄</span><span class="nav-label">Transferências</span></button>
+    <div class="nav-group">SISTEMA</div>
+    <button data-page="importar"><span class="ico">⇧</span><span class="nav-label">Importar Dados</span></button>
+    <button data-page="config"><span class="ico">⚙</span><span class="nav-label">Configurações</span></button>
   </nav>
 </aside>
 <main>
+<div class="global-bar">
+  <div class="global-period" id="globalPeriod">Nenhum período</div>
+  <div class="search-wrap"><input class="global-search" id="globalSearch" placeholder="Buscar fornecedor, NF, valor, documento..." oninput="globalSearchRows(this.value)"><div id="searchResults" class="search-results"></div></div>
+  <div class="global-actions"><span class="close-status" id="globalStatus">SEM DADOS</span><button class="action primary" onclick="showPage('dias')">Analisar divergência</button><button class="collapse-btn" onclick="toggleSidebar()" title="Recolher menu">☰</button></div>
+</div>
 
 <section id="dashboard" class="page active">
-  <div class="topbar">
-    <div><h1>Conciliação de Caixa</h1><div class="muted">Primeiro o consolidado. Depois o dia. Depois o lançamento.</div></div>
-    <div><select id="dashMes" onchange="setActiveMonth(this.value)"></select></div>
-  </div>
-  <div class="grid g4">
-    <div class="card kpi"><div class="label">Saldo inicial</div><div class="value" id="dSaldoIni">R$ 0,00</div></div>
-    <div class="card kpi"><div class="label">Saldo final Omie</div><div class="value" id="dSaldoOmie">R$ 0,00</div></div>
-    <div class="card kpi"><div class="label">Saldo final Modelagem</div><div class="value" id="dSaldoMod">R$ 0,00</div></div>
-    <div class="card kpi"><div class="label">Divergência final</div><div class="value bad" id="dDif">R$ 0,00</div></div>
-  </div>
-  <div style="height:14px"></div>
-  <div class="grid g2">
-    <div class="card"><h2>Resumo do mês</h2><table><thead><tr><th>Indicador</th><th class="right">Omie</th><th class="right">Modelagem</th><th class="right">Diferença</th></tr></thead><tbody id="dResumo"></tbody></table></div>
-    <div class="card"><h2>O que explica a diferença?</h2><table><tbody id="dPonte"></tbody></table><div class="note small" style="margin-top:10px">A ponte precisa fechar matematicamente. Se não fechar, o sistema sinaliza inconsistência no consolidado.</div></div>
-  </div>
-  <div style="height:14px"></div>
-  <div class="card">
-    <div class="topbar"><div><h2>Investigação</h2><div class="muted">Dias com maior impacto primeiro</div></div><button class="action primary" onclick="showPage('dias')">Investigar divergência</button></div>
-    <div class="grid g4">
-      <div class="card kpi"><div class="label">Dias analisados</div><div class="value" id="kDias">0</div></div>
-      <div class="card kpi"><div class="label">Dias conciliados</div><div class="value ok" id="kDiasOk">0</div></div>
-      <div class="card kpi"><div class="label">Dias divergentes</div><div class="value bad" id="kDiasBad">0</div></div>
-      <div class="card kpi"><div class="label">Divergência explicada</div><div class="value" id="kExplicada">0%</div></div>
-    </div>
+  <div id="homeEmpty" class="empty-state" style="display:none"><div><h2>Nenhum dado disponível</h2><p>Adicione um período consolidado ou importe Omie e Modelagem para iniciar a análise.</p><button class="action primary" onclick="showPage('importar')">Importar Dados</button></div></div>
+  <div id="homeContent">
+    <div class="hero"><div class="hero-content">
+      <div class="eyebrow">CONCILIAÇÃO DE CAIXA</div><h1 id="heroTitle">Nenhum período</h1><span class="badge b-bad" id="heroStatus">EM ANÁLISE</span>
+      <div class="hero-value bad" id="dDif">R$ 0,00</div><div class="hero-label">de divergência líquida</div>
+      <div class="hero-balances"><div><span class="small muted">OMIE</span><strong id="dSaldoOmie">R$ 0,00</strong></div><div><span class="small muted">MODELAGEM</span><strong id="dSaldoMod">R$ 0,00</strong></div><div><span class="small muted">SALDO INICIAL</span><strong id="dSaldoIni">R$ 0,00</strong></div></div>
+      <div class="hero-stats"><span class="stat-pill"><strong id="kExplicada">0%</strong> explicado</span><span class="stat-pill"><strong id="kDiasBad">0</strong> dias divergentes</span><span class="stat-pill"><strong id="heroPriority">0</strong> dias prioritários</span></div>
+      <div class="hero-text" id="heroText"></div><div class="hero-actions"><button class="action primary" onclick="showPage('dias')">Investigar agora</button><button class="action" onclick="showPage('consolidado')">Ver consolidado</button></div>
+    </div></div>
+    <div class="rail-section"><div class="rail-head"><h2>Fechamentos</h2><span class="small muted">Selecione um período</span></div><div class="rail" id="homeMonths"></div></div>
+    <div class="rail-section"><div class="rail-head"><h2>Investigue primeiro</h2><span class="small muted">Maior impacto financeiro</span></div><div class="rail" id="homeFocus"></div></div>
+    <div class="rail-section"><div class="rail-head"><h2>Visão financeira</h2><span class="small muted">Entradas e saídas não se escondem no líquido</span></div><div class="rail" id="homeFinancial"></div></div>
+    <div class="rail-section"><div class="rail-head"><h2>Insights do fechamento</h2><span class="small muted">Somente análises disponíveis nesta etapa</span></div><div class="rail" id="homeInsights"></div></div>
+    <div style="display:none"><table><tbody id="dResumo"></tbody><tbody id="dPonte"></tbody></table><span id="kDias"></span><span id="kDiasOk"></span></div>
   </div>
 </section>
 
@@ -154,6 +160,11 @@ input[type="number"]{min-width:150px}
     <div class="topbar"><div><h2>Mapeamento de campos</h2><div class="muted">Confirme quais colunas representam data efetiva, valor, descrição e documento</div></div><button class="action" onclick="autoMapAll()">Tentar mapear automaticamente</button></div>
     <div id="mapArea"></div>
   </div>
+  <div style="height:14px"></div>
+  <div class="card">
+    <div class="topbar"><div><h2>Qualidade dos dados</h2><div class="muted">Somente arquivos confirmados entram na conciliação</div></div></div>
+    <div id="qualityArea" class="grid g2"></div>
+  </div>
 </section>
 
 <section id="transferencias" class="page">
@@ -191,13 +202,17 @@ const state={
   raw:{omiePag:[],omieRec:[],modelCP:[],modelCR:[]},
   files:{omiePag:[],omieRec:[],modelCP:[],modelCR:[]},
   maps:{},
+  importStatus:{},
   normalized:{omie:[],model:[]},
   selectedDay:null
 };
 const BRL=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const NT=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\b(LTDA|ME|EIRELI|S\/A|SA)\b/g,' ').replace(/[^A-Z0-9]/g,' ').replace(/\s+/g,' ').trim();
+const ESC=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function money(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/\s/g,'').replace('R$','');if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return parseFloat(s)||0}
 function dmy(v){if(!v)return'';if(v instanceof Date&&!isNaN(v))return v.toLocaleDateString('pt-BR');if(typeof v==='number'&&window.XLSX){const x=XLSX.SSF.parse_date_code(v);if(x)return`${String(x.d).padStart(2,'0')}/${String(x.m).padStart(2,'0')}/${x.y}`};const s=String(v).trim();if(/^\d{4}-\d{2}-\d{2}/.test(s)){const[a,b,c]=s.slice(0,10).split('-');return`${c}/${b}/${a}`};return s}
+function validDate(v){const s=dmy(v),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return false;const d=new Date(+m[3],+m[2]-1,+m[1]);return d.getFullYear()===+m[3]&&d.getMonth()===+m[2]-1&&d.getDate()===+m[1]}
+function moneyInfo(v){if(v===null||v===undefined||String(v).trim()==='')return{valid:false,value:0};if(typeof v==='number')return{valid:Number.isFinite(v),value:v};let s=String(v).trim().replace(/R\$/gi,'').replace(/\s/g,'');if(!/^-?[\d.,]+$/.test(s))return{valid:false,value:0};if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');const n=Number(s);return{valid:Number.isFinite(n),value:n}}
 function monthKeyFromDate(s){const m=dmy(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${String(m[2]).padStart(2,'0')}`:''}
 function monthLabel(k){if(!k)return'';const[y,m]=k.split('-');const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return`${names[+m-1]}/${y}`}
 function saveMonths(){localStorage.setItem('cc_months',JSON.stringify(state.months));localStorage.setItem('cc_activeMonth',state.activeMonth)}
@@ -227,12 +242,13 @@ function renderMonths(){
 }
 function renderSelectors(){
   const opts=state.months.map(m=>`<option value="${m.month}" ${m.month===state.activeMonth?'selected':''}>${monthLabel(m.month)}</option>`).join('');
-  dashMes.innerHTML=opts;diaMes.innerHTML=opts
+  if(window.dashMes)dashMes.innerHTML=opts;if(window.diaMes)diaMes.innerHTML=opts
 }
 function renderDashboard(){
-  const m=getMonth();if(!m){dSaldoIni.textContent=dSaldoOmie.textContent=dSaldoMod.textContent=dDif.textContent='R$ 0,00';dResumo.innerHTML=dPonte.innerHTML='';return}
+  const m=getMonth();homeEmpty.style.display=m?'none':'flex';homeContent.style.display=m?'block':'none';globalPeriod.textContent=m?monthLabel(m.month):'Nenhum período';if(!m){globalStatus.textContent='SEM DADOS';return}
   const dif=m.omie.saldoFinal-m.model.saldoFinal;
-  dSaldoIni.textContent=BRL(m.omie.saldoInicial);dSaldoOmie.textContent=BRL(m.omie.saldoFinal);dSaldoMod.textContent=BRL(m.model.saldoFinal);dDif.textContent=BRL(dif);dDif.className='value '+(Math.abs(dif)<.01?'ok':'bad');
+  dSaldoIni.textContent=BRL(m.omie.saldoInicial);dSaldoOmie.textContent=BRL(m.omie.saldoFinal);dSaldoMod.textContent=BRL(m.model.saldoFinal);dDif.textContent=BRL(dif);dDif.className='hero-value '+(Math.abs(dif)<.01?'ok':'bad');
+  const monthNames=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'],[yy,mm]=m.month.split('-'),isOk=Math.abs(dif)<.01;heroTitle.textContent=`CONCILIAÇÃO — ${monthNames[+mm-1]}/${yy}`;heroStatus.textContent=isOk?'CONCILIADO':'EM ANÁLISE';heroStatus.className='badge '+(isOk?'b-ok':'b-bad');globalStatus.textContent=heroStatus.textContent;globalStatus.style.background=isOk?'#123521':'#331b20';globalStatus.style.color=isOk?'#86efac':'#fca5a5';
   const rows=[
     ['Saldo inicial',m.omie.saldoInicial,m.model.saldoInicial],
     ['Entradas',m.omie.entradas,m.model.entradas],
@@ -252,7 +268,15 @@ function renderDashboard(){
   dPonte.innerHTML=ponte.map((r,i)=>`<tr><td>${r[0]}</td><td class="right ${i>=4&&Math.abs(r[1])>.01?'bad':''}"><strong>${BRL(r[1])}</strong></td></tr>`).join('');
   const days=getDaySummary(m.month), bad=days.filter(x=>Math.abs(x.impact)>.01);
   kDias.textContent=days.length;kDiasOk.textContent=days.length-bad.length;kDiasBad.textContent=bad.length;
-  const detailImpact=bad.reduce((s,x)=>s+Math.abs(x.impact),0), target=Math.abs(dif);const pct=target?Math.min(100,detailImpact/target*100):100;kExplicada.textContent=pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'
+  const detailImpact=bad.reduce((s,x)=>s+Math.abs(x.impact),0), target=Math.abs(dif);const pct=target?Math.min(100,detailImpact/target*100):100;kExplicada.textContent=pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';const focus=bad.slice(0,7),top=focus[0],topPct=top&&target?Math.abs(top.impact)/target*100:0;heroPriority.textContent=focus.length;heroText.textContent=isOk?`${monthLabel(m.month)} está conciliado dentro da tolerância. Entradas e saídas permanecem disponíveis para auditoria.`:top?`${monthLabel(m.month)} possui ${BRL(Math.abs(dif))} de divergência. ${topPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}% do valor líquido está concentrado em ${top.date}. Recomendação: comece pelos dias de maior impacto.`:`${monthLabel(m.month)} possui ${BRL(Math.abs(dif))} de divergência no consolidado, mas ainda não há base detalhada confirmada para localizar os dias responsáveis.`;renderHomeRails(m,days,bad)
+}
+function compactBRL(v){const a=Math.abs(v);if(a>=1000000)return`${v<0?'-':''}R$ ${(a/1000000).toLocaleString('pt-BR',{maximumFractionDigits:2})} mi`;if(a>=1000)return`${v<0?'-':''}R$ ${(a/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} mil`;return BRL(v)}
+function railEmpty(title){return`<div class="empty-state"><div><strong>${title}</strong><div class="small" style="margin-top:7px">Os indicadores serão calculados somente com dados reais.</div><button class="action" style="margin-top:12px" onclick="showPage('importar')">Importar Dados</button></div></div>`}
+function renderHomeRails(m,days,bad){
+  homeMonths.innerHTML=state.months.map(x=>{const d=x.omie.saldoFinal-x.model.saldoFinal,ok=Math.abs(d)<.01;return`<div class="rail-card" onclick="setActiveMonth('${x.month}')"><div class="eyebrow">${monthLabel(x.month)}</div><div class="big ${ok?'ok':'bad'}">${compactBRL(Math.abs(d))}</div><div class="meta">Omie ${compactBRL(x.omie.saldoFinal)}<br>Modelagem ${compactBRL(x.model.saldoFinal)}<br><span class="badge ${ok?'b-ok':'b-bad'}">${ok?'CONCILIADO':'EM ANÁLISE'}</span></div><div class="hover-action">Selecionar período →</div></div>`}).join('');
+  const target=Math.abs(m.omie.saldoFinal-m.model.saldoFinal);homeFocus.innerHTML=bad.length?bad.slice(0,8).map((x,i)=>{const p=target?Math.abs(x.impact)/target*100:0,level=i===0?'CRÍTICO':i<3?'ALTO':'MÉDIO';return`<div class="rail-card" onclick="openDay('${x.date}')"><div class="eyebrow">${x.date}</div><div class="big bad">${BRL(Math.abs(x.impact))}</div><div class="meta">${p.toLocaleString('pt-BR',{maximumFractionDigits:1})}% da divergência líquida<br><span class="badge ${i===0?'b-bad':'b-warn'}">${level}</span></div><div class="hover-action">Abrir lançamentos →</div></div>`}).join(''):railEmpty(days.length?'Nenhum dia divergente':'Base detalhada ainda não confirmada');
+  const cards=[['ENTRADAS OMIE',m.omie.entradas,''],['ENTRADAS MODELAGEM',m.model.entradas,m.omie.entradas-m.model.entradas],['SAÍDAS OMIE',m.omie.saidas,''],['SAÍDAS MODELAGEM',m.model.saidas,m.omie.saidas-m.model.saidas],['DIVERGÊNCIA LÍQUIDA',m.omie.saldoFinal-m.model.saldoFinal,'']];homeFinancial.innerHTML=cards.map(c=>`<div class="rail-card" onclick="showPage('consolidado')"><div class="eyebrow">${c[0]}</div><div class="big ${c[0].includes('DIVERGÊNCIA')&&Math.abs(c[1])>.01?'bad':''}">${BRL(c[1])}</div><div class="meta">${c[2]!==''?'Diferença: '+BRL(c[2]):'Ver composição no consolidado'}</div><div class="hover-action">Ver consolidado →</div></div>`).join('');
+  const top=bad[0],confirmed=Object.values(state.files).flat().filter(f=>f.confirmed).length,allFiles=Object.values(state.files).flat().length,bridge=(m.omie.saldoInicial-m.model.saldoInicial)+(m.omie.entradas-m.model.entradas)-(m.omie.saidas-m.model.saidas)+(m.omie.ajustes-m.model.ajustes),bridgeOk=Math.abs((m.omie.saldoFinal-m.model.saldoFinal)-bridge)<.01;homeInsights.innerHTML=`<div class="rail-card" onclick="showPage('dias')"><div class="eyebrow">MAIOR IMPACTO</div><div class="big">${top?top.date:'—'}</div><div class="meta">${top?BRL(Math.abs(top.impact)):'Sem detalhe diário disponível'}</div><div class="hover-action">Ver análise diária →</div></div><div class="rail-card" onclick="showPage('importar')"><div class="eyebrow">QUALIDADE DA BASE</div><div class="big">${allFiles?confirmed+'/'+allFiles:'—'}</div><div class="meta">arquivos confirmados após validação</div><div class="hover-action">Revisar importação →</div></div><div class="rail-card" onclick="showPage('consolidado')"><div class="eyebrow">PONTE DO CAIXA</div><div class="big ${bridgeOk?'ok':'bad'}">${bridgeOk?'VALIDADA':'INCONSISTENTE'}</div><div class="meta">Saldo inicial + entradas − saídas + ajustes</div><div class="hover-action">Auditar ponte →</div></div>`
 }
 const aliases={
   date:['DATA DE CREDITO OU DEBITO NO EXTRATO','DATA PAGAMENTO','DATA DE PAGAMENTO','DATA RECEBIMENTO','DATA DE RECEBIMENTO','DATA DA BAIXA','DATA BAIXA','DATA'],
@@ -269,33 +293,55 @@ async function loadFiles(inp,key){
     let rows=[],sheet='';
     for(const sn of wb.SheetNames){const p=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});if(p.length>rows.length){rows=p;sheet=sn}}
     const id=key+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    state.files[key].push({id,name:file.name,rows:rows.length,cols:Object.keys(rows[0]||{}),sheet});
+    state.files[key].push({id,name:file.name,rows:rows.length,cols:Object.keys(rows[0]||{}),sheet,confirmed:false});
     state.raw[key].push(...rows.map(r=>({...r,__file:id,__fileName:file.name})));
+    state.importStatus[id]={confirmed:false};
   }
   inp.value='';autoMapAll();renderFiles();rebuild()
 }
 function autoMapAll(){
   for(const key of Object.keys(state.files)){
     const cols=state.files[key].flatMap(f=>f.cols);if(!cols.length)continue;
-    state.maps[key]={date:bestCol(cols,aliases.date),value:bestCol(cols,aliases.value),party:bestCol(cols,aliases.party),doc:bestCol(cols,aliases.doc),desc:bestCol(cols,aliases.desc)}
+    state.maps[key]={date:bestCol(cols,aliases.date),value:bestCol(cols,aliases.value),party:bestCol(cols,aliases.party),doc:bestCol(cols,aliases.doc),desc:bestCol(cols,aliases.desc),category:bestCol(cols,['CATEGORIA','CLASSIFICACAO']),project:bestCol(cols,['PROJETO']),account:bestCol(cols,['CONTA CORRENTE','CONTA']),observation:bestCol(cols,['OBSERVACOES','OBSERVACAO']),type:bestCol(cols,aliases.type)}
+    invalidateSource(key)
   }
   renderMap()
 }
 function renderFiles(){
-  const make=(keys,target)=>{const arr=keys.flatMap(k=>state.files[k].map(f=>({k,f})));document.getElementById(target).innerHTML=arr.length?arr.map(x=>`<div class="file-item"><div><strong>${x.f.name}</strong><div class="small muted">${x.f.rows.toLocaleString('pt-BR')} linhas • ${x.f.sheet}</div></div><button class="action danger" onclick="removeFile('${x.k}','${x.f.id}')">Remover</button></div>`).join(''):'<div class="small muted" style="padding-top:8px">Nenhum arquivo importado.</div>'};
+  const make=(keys,target)=>{const arr=keys.flatMap(k=>state.files[k].map(f=>({k,f})));document.getElementById(target).innerHTML=arr.length?arr.map(x=>{const v=validateFile(x.k,x.f.id);return`<div class="file-item"><div><strong>${ESC(x.f.name)}</strong> <span class="badge ${x.f.confirmed?'b-ok':'b-warn'}">${x.f.confirmed?'CONFIRMADO':'AGUARDANDO CONFIRMAÇÃO'}</span><div class="small muted">${x.f.rows.toLocaleString('pt-BR')} linhas • ${ESC(x.f.sheet)} • ${v.period||'período não identificado'}</div></div><button class="action danger" onclick="removeFile('${x.k}','${x.f.id}')">Remover</button></div>`}).join(''):'<div class="small muted" style="padding-top:8px">Nenhum arquivo importado.</div>'};
   make(['omiePag','omieRec'],'filesOmie');make(['modelCP','modelCR'],'filesModel')
 }
-function removeFile(key,id){state.files[key]=state.files[key].filter(f=>f.id!==id);state.raw[key]=state.raw[key].filter(r=>r.__file!==id);autoMapAll();renderFiles();rebuild()}
+function removeFile(key,id){state.files[key]=state.files[key].filter(f=>f.id!==id);state.raw[key]=state.raw[key].filter(r=>r.__file!==id);delete state.importStatus[id];autoMapAll();renderFiles();rebuild()}
+function invalidateSource(key){(state.files[key]||[]).forEach(f=>{f.confirmed=false;state.importStatus[f.id]={confirmed:false}})}
+function changeMap(key,field,value){state.maps[key]??={};state.maps[key][field]=value;invalidateSource(key);renderFiles();renderMap();rebuild()}
+function quantile(a,q){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),p=(s.length-1)*q,b=Math.floor(p),r=p-b;return s[b]+((s[b+1]??s[b])-s[b])*r}
+function validateFile(key,id){
+  const f=state.files[key]?.find(x=>x.id===id),mp=state.maps[key]||{},rows=state.raw[key].filter(r=>r.__file===id);if(!f)return{errors:['Arquivo não encontrado'],warnings:[],validRows:0,ignored:0,score:0,sample:[]};
+  const errors=[],warnings=[];if(!mp.date)errors.push('Selecione a coluna de data efetiva.');if(!mp.value)errors.push('Selecione a coluna de valor.');
+  let noDate=0,badDate=0,noValue=0,badValue=0,zero=0,noParty=0,noDoc=0;const dates=[],values=[],valid=[];
+  rows.forEach(r=>{const dv=r[mp.date],vi=moneyInfo(r[mp.value]);if(dv===null||dv===undefined||String(dv).trim()==='')noDate++;else if(!validDate(dv))badDate++;if(r[mp.value]===null||r[mp.value]===undefined||String(r[mp.value]).trim()==='')noValue++;else if(!vi.valid)badValue++;else if(vi.value===0)zero++;if(!String(r[mp.party]||'').trim())noParty++;if(!String(r[mp.doc]||'').trim())noDoc++;if(validDate(dv)&&vi.valid&&vi.value!==0){dates.push(dmy(dv));values.push(Math.abs(vi.value));valid.push(r)}});
+  const numericRatio=rows.length?(rows.length-noValue-badValue)/rows.length:0,dateRatio=rows.length?(rows.length-noDate-badDate)/rows.length:0;if(rows.length&&!valid.length)errors.push('Nenhum registro possui data e valor válidos.');if(numericRatio<.8)errors.push('A coluna de valor não parece monetária (menos de 80% dos valores são numéricos).');if(dateRatio<.8)errors.push('A coluna de data não parece conter datas válidas (menos de 80% reconhecidas).');
+  const q1=quantile(values,.25),q3=quantile(values,.75),iqr=q3-q1,limit=Math.max(q3+10*iqr,quantile(values,.5)*100,1000000),outliers=values.filter(v=>v>limit);if(outliers.length)warnings.push(`${outliers.length} valor(es) atípico(s) detectado(s), incluindo ${BRL(Math.max(...outliers))}. Confirme o mapeamento.`);if(zero)warnings.push(`${zero} registro(s) com valor zero.`);
+  const seen=new Set();let duplicates=0;valid.forEach(r=>{const k=[dmy(r[mp.date]),moneyInfo(r[mp.value]).value,NT(r[mp.party]),NT(r[mp.doc])].join('|');if(seen.has(k))duplicates++;else seen.add(k)});if(duplicates)warnings.push(`${duplicates} possível(is) duplicidade(s) por data, valor, contraparte e documento. Nenhum registro será excluído.`);
+  const sorted=dates.map(s=>{const[d,m,y]=s.split('/');return`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`}).sort(),period=sorted.length?`${dmy(sorted[0])} até ${dmy(sorted.at(-1))}`:'';const issues=noDate+badDate+noValue+badValue+zero,score=rows.length?Math.max(0,Math.round(100-(issues/rows.length*65)-(noParty/rows.length*12)-(noDoc/rows.length*12)-(duplicates/rows.length*11))):0;
+  return{errors,warnings,validRows:valid.length,ignored:rows.length-valid.length,score,period,sample:rows.slice(0,10),stats:{noDate,badDate,noValue,badValue,zero,noParty,noDoc,outliers:outliers.length,duplicates}}
+}
+function confirmSource(key){const fs=state.files[key].filter(f=>!f.confirmed);if(!fs.length)return;const results=fs.map(f=>validateFile(key,f.id)),errors=results.flatMap(v=>v.errors);if(errors.length){alert('O mapeamento parece incorreto.\n\n'+[...new Set(errors)].join('\n'));return}fs.forEach(f=>{f.confirmed=true;state.importStatus[f.id]={confirmed:true}});renderFiles();rebuild()}
 function renderMap(){
   const labels={omiePag:'Omie — Pagamentos',omieRec:'Omie — Recebimentos',modelCP:'Modelagem — CP',modelCR:'Modelagem — CR'};
   mapArea.innerHTML=Object.keys(labels).map(k=>{
     const cols=[...new Set(state.files[k].flatMap(f=>f.cols))]; if(!cols.length)return'';
-    const sel=(field)=>`<select onchange="state.maps['${k}']['${field}']=this.value;rebuild()"><option value="">—</option>${cols.map(c=>`<option ${state.maps[k]?.[field]===c?'selected':''}>${c}</option>`).join('')}</select>`;
-    return`<div class="card" style="margin-bottom:10px"><h3>${labels[k]}</h3><div class="toolbar"><div><div class="small muted">Data efetiva</div>${sel('date')}</div><div><div class="small muted">Valor</div>${sel('value')}</div><div><div class="small muted">Cliente/Fornecedor</div>${sel('party')}</div><div><div class="small muted">Documento</div>${sel('doc')}</div><div><div class="small muted">Descrição</div>${sel('desc')}</div></div></div>`
+    const sel=(field)=>`<select onchange="changeMap('${k}','${field}',this.value)"><option value="">—</option>${cols.map(c=>`<option value="${ESC(c)}" ${state.maps[k]?.[field]===c?'selected':''}>${ESC(c)}</option>`).join('')}</select>`,fs=state.files[k],pending=fs.some(f=>!f.confirmed),vals=fs.map(f=>({f,v:validateFile(k,f.id)}));
+    const previews=vals.map(({f,v})=>{const heads=cols.slice(0,8);return`<div class="small muted" style="margin:10px 0 5px"><strong>${ESC(f.name)}</strong> — ${f.rows} linhas — ${v.period||'período não identificado'} — ${v.validRows} válidas / ${v.ignored} ignoradas</div>${v.errors.map(e=>`<div class="alert bad">${ESC(e)}</div>`).join('')}${v.warnings.map(e=>`<div class="alert warn">${ESC(e)}</div>`).join('')}<div class="preview"><table><thead><tr>${heads.map(h=>`<th>${ESC(h)}</th>`).join('')}</tr></thead><tbody>${v.sample.map(r=>`<tr>${heads.map(h=>`<td>${ESC(r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}).join('');
+    return`<div class="card mapping-card ${pending?'pending':'confirmed'}" style="margin-bottom:10px"><div class="topbar"><h3>${labels[k]}</h3><span class="badge ${pending?'b-warn':'b-ok'}">${pending?'REVISAR':'CONFIRMADO'}</span></div><div class="toolbar"><div><div class="small muted">Data efetiva *</div>${sel('date')}</div><div><div class="small muted">Valor *</div>${sel('value')}</div><div><div class="small muted">Cliente/Fornecedor</div>${sel('party')}</div><div><div class="small muted">Documento</div>${sel('doc')}</div><div><div class="small muted">Descrição</div>${sel('desc')}</div><div><div class="small muted">Categoria</div>${sel('category')}</div><div><div class="small muted">Projeto</div>${sel('project')}</div><div><div class="small muted">Conta</div>${sel('account')}</div><div><div class="small muted">Observação</div>${sel('observation')}</div><div><div class="small muted">Tipo</div>${sel('type')}</div></div>${previews}<div style="margin-top:10px"><button class="action primary" onclick="confirmSource('${k}')" ${pending?'':'disabled'}>Confirmar importação</button></div></div>`
   }).join('')
+  renderQuality()
+}
+function renderQuality(){
+  const groups=[{label:'Base Omie',keys:['omiePag','omieRec']},{label:'Base Modelagem',keys:['modelCP','modelCR']}],cards=[];for(const group of groups){const items=group.keys.flatMap(k=>state.files[k].map(f=>({f,v:validateFile(k,f.id)})));if(!items.length)continue;const rows=items.reduce((s,x)=>s+x.f.rows,0),valid=items.reduce((s,x)=>s+x.v.validRows,0),score=rows?Math.round(items.reduce((s,x)=>s+x.v.score*x.f.rows,0)/rows):0,stats=items.reduce((a,x)=>{Object.keys(x.v.stats).forEach(k=>a[k]=(a[k]||0)+x.v.stats[k]);return a},{});cards.push(`<div class="card"><div class="topbar"><h3>${group.label}</h3><span class="badge ${score>=95?'b-ok':score>=80?'b-warn':'b-bad'}">Score ${score}%</span></div><div>${valid.toLocaleString('pt-BR')} de ${rows.toLocaleString('pt-BR')} registros válidos</div><ul class="quality-list small muted"><li>Sem/data inválida: ${(stats.noDate||0)+(stats.badDate||0)}</li><li>Sem/valor inválido ou zerado: ${(stats.noValue||0)+(stats.badValue||0)+(stats.zero||0)}</li><li>Sem contraparte: ${stats.noParty||0}</li><li>Sem documento: ${stats.noDoc||0}</li><li>Possíveis duplicidades: ${stats.duplicates||0}</li><li>Outliers: ${stats.outliers||0}</li></ul></div>`)}qualityArea.innerHTML=cards.join('')||'<div class="small muted">Importe um arquivo para calcular a qualidade da base.</div>'
 }
 function normalizeKey(key,type,side){
-  const mp=state.maps[key]||{};return state.raw[key].map((r,i)=>({id:key+'_'+i,side,type,date:dmy(r[mp.date]),value:Math.abs(money(r[mp.value])),party:String(r[mp.party]||''),doc:String(r[mp.doc]||''),desc:String(r[mp.desc]||''),file:r.__fileName||''})).filter(x=>x.date&&x.value!==0)
+  const mp=state.maps[key]||{},confirmed=new Set(state.files[key].filter(f=>f.confirmed).map(f=>f.id));return state.raw[key].filter(r=>confirmed.has(r.__file)).map((r,i)=>({id:key+'_'+i,side,type,date:dmy(r[mp.date]),value:Math.abs(money(r[mp.value])),party:String(r[mp.party]||''),doc:String(r[mp.doc]||''),desc:String(r[mp.desc]||''),category:String(r[mp.category]||''),project:String(r[mp.project]||''),account:String(r[mp.account]||''),observation:String(r[mp.observation]||''),original:{date:r[mp.date],value:r[mp.value]},file:r.__fileName||''})).filter(x=>validDate(x.date)&&moneyInfo(x.original.value).valid&&x.value!==0)
 }
 function rebuild(){
   state.normalized.omie=[...normalizeKey('omiePag','Saída','Omie'),...normalizeKey('omieRec','Entrada','Omie')];
@@ -344,14 +390,13 @@ function renderTransfer(){
   tblAjustes.innerHTML=state.months.map(m=>`<tr><td>${monthLabel(m.month)}</td><td class="right">${BRL(m.omie.ajustes)}</td><td class="right">${BRL(m.model.ajustes)}</td><td class="right">${BRL(m.omie.ajustes-m.model.ajustes)}</td></tr>`).join('')
 }
 function renderAll(){renderSelectors();renderMonths();renderDashboard();renderDias();renderLancamentos();renderFiles();renderMap();renderTransfer()}
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id))}
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+function showPage(id){const page=document.getElementById(id);if(!page)return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));page.classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('nav button[data-page]').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+function toggleSidebar(){document.querySelector('.app').classList.toggle('collapsed');localStorage.setItem('cc_sidebar',document.querySelector('.app').classList.contains('collapsed')?'1':'0')}
+function globalSearchRows(q){q=NT(q);if(q.length<2){searchResults.classList.remove('open');searchResults.innerHTML='';return}const rows=[...state.normalized.omie,...state.normalized.model].filter(x=>NT([x.party,x.doc,x.desc,x.value].join(' ')).includes(q)).slice(0,30);searchResults.innerHTML=rows.length?rows.map(x=>`<div class="search-hit" onclick="searchResults.classList.remove('open');openDay('${x.date}')"><strong>${ESC(x.party||x.desc||'Sem descrição')}</strong><div class="small muted">${x.side} • ${x.date} • ${BRL(x.value)} • ${ESC(x.doc)}</div></div>`).join(''):'<div class="search-hit muted">Nenhum lançamento encontrado nas bases confirmadas.</div>';searchResults.classList.add('open')}
 function resetAll(){if(!confirm('Limpar consolidados, configurações e bases desta sessão?'))return;localStorage.removeItem('cc_months');localStorage.removeItem('cc_activeMonth');localStorage.removeItem('cc_cfg');location.reload()}
 function bootstrap(){
-  if(!state.months.length){
-    state.months=[{month:'2026-01',omie:{saldoInicial:3350160.91,entradas:1704949.03,saidas:3787204.15,ajustes:9000,saldoFinal:1276905.79},model:{saldoInicial:3350160.91,entradas:1700149,saidas:3765000,ajustes:0,saldoFinal:1285309}}];
-    state.activeMonth='2026-01';saveMonths()
-  }
+  if(state.months.length&&!state.activeMonth)state.activeMonth=state.months[0].month;if(localStorage.getItem('cc_sidebar')==='1')document.querySelector('.app').classList.add('collapsed');
   cfgValTol.value=state.cfg.valTol;cfgDateTol.value=state.cfg.dateTol;cfgComp.checked=state.cfg.composition;
   renderAll()
 }

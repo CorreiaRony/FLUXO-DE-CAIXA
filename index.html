@@ -301,25 +301,50 @@ function renderHomeRails(m,days,bad){
 }
 const aliases={
   date:['DATA DE CREDITO OU DEBITO NO EXTRATO','DATA PAGAMENTO','DATA DE PAGAMENTO','DATA RECEBIMENTO','DATA DE RECEBIMENTO','DATA DA BAIXA','DATA BAIXA','DATA'],
-  value:['VALOR PAGO','VALOR RECEBIDO','VALOR DA BAIXA','VALOR PAGO RECEBIDO','VALOR'],
+  value:['VALOR PAGO','RECEBIDO','VALOR RECEBIDO','VALOR DA BAIXA','VALOR PAGO RECEBIDO','VALOR'],
   party:['CLIENTE FORNECEDOR','FORNECEDOR','CLIENTE','FAVORECIDO','RAZAO SOCIAL','NOME'],
   doc:['DOCUMENTO','NOTA FISCAL','NF','NUMERO DOCUMENTO','N DOCUMENTO'],
   desc:['OBSERVACOES','OBSERVACAO','HISTORICO','DESCRICAO','CATEGORIA','ORIGEM'],
   type:['TIPO','ORIGEM','NATUREZA']
 };
+function detectHeaderRow(matrix){
+  const known=[...aliases.date,...aliases.value,...aliases.party,...aliases.doc,'CATEGORIA','CONTA CORRENTE','PROJETO','ORIGEM','VALOR DA CONTA','VENCIMENTO','PREVISAO','EMISSAO','CNPJ CPF'];
+  let best={index:-1,score:-1,filled:0};
+  matrix.slice(0,20).forEach((row,index)=>{
+    const cells=(row||[]).map(v=>NT(v)).filter(Boolean),filled=cells.length;
+    let score=0;
+    cells.forEach(cell=>{if(known.some(k=>cell===NT(k)||cell.includes(NT(k))))score+=3;else if(/DATA|VALOR|CLIENTE|FORNECEDOR|DOCUMENTO|CATEGORIA|CONTA|PROJETO/.test(cell))score+=1});
+    if(score>best.score||(score===best.score&&filled>best.filled))best={index,score,filled};
+  });
+  return best.score>=6?best.index:-1
+}
+function uniqueHeaders(row){
+  const used={};return (row||[]).map((v,i)=>{let h=String(v??'').trim();if(!h)h=`COLUNA_${i+1}`;const base=h;used[base]=(used[base]||0)+1;return used[base]===1?base:`${base}_${used[base]}`})
+}
+function matrixToObjects(matrix,headerIndex){
+  const headers=uniqueHeaders(matrix[headerIndex]);
+  return matrix.slice(headerIndex+1).filter(row=>(row||[]).some(v=>String(v??'').trim()!=='')).map(row=>{const o={};headers.forEach((h,i)=>o[h]=row?.[i]??'');return o})
+}
+
 function bestCol(cols,als){for(const a of als){let x=cols.find(c=>NT(c)===a);if(x)return x}for(const a of als){let x=cols.find(c=>NT(c).includes(a));if(x)return x}return''}
 async function loadFiles(inp,key){
   for(const file of [...inp.files]){
     const ab=await file.arrayBuffer(),wb=XLSX.read(ab,{type:'array',cellDates:true});
-    let rows=[],sheet='';
-    for(const sn of wb.SheetNames){const p=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});if(p.length>rows.length){rows=p;sheet=sn}}
+    let rows=[],sheet='',headerRowIndex=-1,cols=[];
+    for(const sn of wb.SheetNames){
+      const matrix=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false,dateNF:'dd/mm/yyyy'}),h=detectHeaderRow(matrix);
+      if(h<0)continue;
+      const candidate=matrixToObjects(matrix,h);
+      if(candidate.length>rows.length){rows=candidate;sheet=sn;headerRowIndex=h;cols=uniqueHeaders(matrix[h])}
+    }
     const id=key+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    state.files[key].push({id,name:file.name,rows:rows.length,cols:Object.keys(rows[0]||{}),sheet,confirmed:false});
+    state.files[key].push({id,name:file.name,rows:rows.length,cols,sheet,headerRow:headerRowIndex>=0?headerRowIndex+1:null,confirmed:false});
     state.raw[key].push(...rows.map(r=>({...r,__file:id,__fileName:file.name})));
     state.importStatus[id]={confirmed:false};
   }
   inp.value='';autoMapAll();renderFiles();rebuild()
 }
+
 function autoMapAll(){
   for(const key of Object.keys(state.files)){
     const cols=state.files[key].flatMap(f=>f.cols);if(!cols.length)continue;
@@ -329,7 +354,7 @@ function autoMapAll(){
   renderMap()
 }
 function renderFiles(){
-  const make=(keys,target)=>{const arr=keys.flatMap(k=>state.files[k].map(f=>({k,f})));document.getElementById(target).innerHTML=arr.length?arr.map(x=>{const v=validateFile(x.k,x.f.id);return`<div class="file-item"><div><strong>${ESC(x.f.name)}</strong> <span class="badge ${x.f.confirmed?'b-ok':'b-warn'}">${x.f.confirmed?'CONFIRMADO':'AGUARDANDO CONFIRMAÇÃO'}</span><div class="small muted">${x.f.rows.toLocaleString('pt-BR')} linhas • ${ESC(x.f.sheet)} • ${v.period||'período não identificado'}</div></div><button class="action danger" onclick="removeFile('${x.k}','${x.f.id}')">Remover</button></div>`}).join(''):'<div class="small muted" style="padding-top:8px">Nenhum arquivo importado.</div>'};
+  const make=(keys,target)=>{const arr=keys.flatMap(k=>state.files[k].map(f=>({k,f})));document.getElementById(target).innerHTML=arr.length?arr.map(x=>{const v=validateFile(x.k,x.f.id);return`<div class="file-item"><div><strong>${ESC(x.f.name)}</strong> <span class="badge ${x.f.confirmed?'b-ok':'b-warn'}">${x.f.confirmed?'CONFIRMADO':'AGUARDANDO CONFIRMAÇÃO'}</span><div class="small muted">${x.f.rows.toLocaleString('pt-BR')} linhas • ${ESC(x.f.sheet)}${x.f.headerRow?` • cabeçalho linha ${x.f.headerRow}`:''} • ${v.period||'período não identificado'}</div></div><button class="action danger" onclick="removeFile('${x.k}','${x.f.id}')">Remover</button></div>`}).join(''):'<div class="small muted" style="padding-top:8px">Nenhum arquivo importado.</div>'};
   make(['omiePag','omieRec'],'filesOmie');make(['modelCP','modelCR'],'filesModel')
 }
 function removeFile(key,id){state.files[key]=state.files[key].filter(f=>f.id!==id);state.raw[key]=state.raw[key].filter(r=>r.__file!==id);delete state.importStatus[id];autoMapAll();renderFiles();rebuild()}
@@ -353,7 +378,7 @@ function renderMap(){
   mapArea.innerHTML=Object.keys(labels).map(k=>{
     const cols=[...new Set(state.files[k].flatMap(f=>f.cols))]; if(!cols.length)return'';
     const sel=(field)=>`<select onchange="changeMap('${k}','${field}',this.value)"><option value="">—</option>${cols.map(c=>`<option value="${ESC(c)}" ${state.maps[k]?.[field]===c?'selected':''}>${ESC(c)}</option>`).join('')}</select>`,fs=state.files[k],pending=fs.some(f=>!f.confirmed),vals=fs.map(f=>({f,v:validateFile(k,f.id)}));
-    const previews=vals.map(({f,v})=>{const heads=cols.slice(0,8);return`<div class="small muted" style="margin:10px 0 5px"><strong>${ESC(f.name)}</strong> — ${f.rows} linhas — ${v.period||'período não identificado'} — ${v.validRows} válidas / ${v.ignored} ignoradas</div>${v.errors.map(e=>`<div class="alert bad">${ESC(e)}</div>`).join('')}${v.warnings.map(e=>`<div class="alert warn">${ESC(e)}</div>`).join('')}<div class="preview"><table><thead><tr>${heads.map(h=>`<th>${ESC(h)}</th>`).join('')}</tr></thead><tbody>${v.sample.map(r=>`<tr>${heads.map(h=>`<td>${ESC(r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}).join('');
+    const previews=vals.map(({f,v})=>{const heads=cols.slice(0,8);return`<div class="small muted" style="margin:10px 0 5px"><strong>${ESC(f.name)}</strong> — ${f.rows} linhas${f.headerRow?` — cabeçalho linha ${f.headerRow}`:''} — ${v.period||'período não identificado'} — ${v.validRows} válidas / ${v.ignored} ignoradas</div>${v.errors.map(e=>`<div class="alert bad">${ESC(e)}</div>`).join('')}${v.warnings.map(e=>`<div class="alert warn">${ESC(e)}</div>`).join('')}<div class="preview"><table><thead><tr>${heads.map(h=>`<th>${ESC(h)}</th>`).join('')}</tr></thead><tbody>${v.sample.map(r=>`<tr>${heads.map(h=>`<td>${ESC(r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}).join('');
     return`<div class="card mapping-card ${pending?'pending':'confirmed'}" style="margin-bottom:10px"><div class="topbar"><h3>${labels[k]}</h3><span class="badge ${pending?'b-warn':'b-ok'}">${pending?'REVISAR':'CONFIRMADO'}</span></div><div class="toolbar"><div><div class="small muted">Data efetiva *</div>${sel('date')}</div><div><div class="small muted">Valor *</div>${sel('value')}</div><div><div class="small muted">Cliente/Fornecedor</div>${sel('party')}</div><div><div class="small muted">Documento</div>${sel('doc')}</div><div><div class="small muted">Descrição</div>${sel('desc')}</div><div><div class="small muted">Categoria</div>${sel('category')}</div><div><div class="small muted">Projeto</div>${sel('project')}</div><div><div class="small muted">Conta</div>${sel('account')}</div><div><div class="small muted">Observação</div>${sel('observation')}</div><div><div class="small muted">Tipo</div>${sel('type')}</div></div>${previews}<div style="margin-top:10px"><button class="action primary" onclick="confirmSource('${k}')" ${pending?'':'disabled'}>Confirmar importação</button></div></div>`
   }).join('')
   renderQuality()

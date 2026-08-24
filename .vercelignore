@@ -1,0 +1,4 @@
+# Publicar somente a aplicação estática e sua configuração.
+/*
+!index.html
+!vercel.json

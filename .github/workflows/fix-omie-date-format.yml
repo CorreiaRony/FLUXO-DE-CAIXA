@@ -1,0 +1,32 @@
+name: Corrigir datas Omie
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fix-omie-date-format.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corrigir parser de datas Omie
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="function dmy(v){if(!v)return'';if(v instanceof Date&&!isNaN(v))return v.toLocaleDateString('pt-BR');if(typeof v==='number'&&window.XLSX){const x=XLSX.SSF.parse_date_code(v);if(x)return`${String(x.d).padStart(2,'0')}/${String(x.m).padStart(2,'0')}/${x.y}`};const s=String(v).trim();if(/^\\d{4}-\\d{2}-\\d{2}/.test(s)){const[a,b,c]=s.slice(0,10).split('-');return`${c}/${b}/${a}`};return s}"
+          new="function dmy(v){if(!v)return'';if(v instanceof Date&&!isNaN(v))return v.toLocaleDateString('pt-BR');if(typeof v==='number'&&window.XLSX){const x=XLSX.SSF.parse_date_code(v);if(x)return`${String(x.d).padStart(2,'0')}/${String(x.m).padStart(2,'0')}/${x.y}`};const s=String(v).trim();if(/^\\d{4}-\\d{2}-\\d{2}/.test(s)){const[a,b,c]=s.slice(0,10).split('-');return`${c}/${b}/${a}`};let m=s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2})$/);if(m){const year=2000+Number(m[3]);return`${String(m[2]).padStart(2,'0')}/${String(m[1]).padStart(2,'0')}/${year}`};m=s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})$/);if(m&&Number(m[1])<=12){return`${String(m[2]).padStart(2,'0')}/${String(m[1]).padStart(2,'0')}/${m[3]}`};return s}"
+          if old not in s: raise SystemExit('Função dmy esperada não encontrada')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Validar e publicar
+        run: |
+          grep -q '2000+Number' index.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Corrige leitura de datas MM/DD/YY do Omie'
+          git push origin main

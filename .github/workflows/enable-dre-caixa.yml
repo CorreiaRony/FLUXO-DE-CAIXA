@@ -1,0 +1,85 @@
+name: Ativar DRE de Caixa
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/enable-dre-caixa.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ativar DRE de Caixa
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old='<button class="soon"><span class="ico">▥</span><span class="nav-label">DRE de Caixa</span></button>'
+          new='<button data-page="dre"><span class="ico">▥</span><span class="nav-label">DRE de Caixa</span></button>'
+          s=s.replace(old,new,1)
+
+          section=r'''
+<section id="dre" class="page">
+  <div class="topbar"><div><h1>DRE de Caixa</h1><div class="muted">Visão gerencial de entradas e saídas realizadas no período selecionado</div></div><select id="dreMes" onchange="setActiveMonth(this.value)"></select></div>
+  <div class="grid g4">
+    <div class="card kpi"><div class="label">Entradas Omie</div><div class="value ok" id="dreEntO">R$ 0,00</div></div>
+    <div class="card kpi"><div class="label">Entradas Modelagem</div><div class="value" id="dreEntM">R$ 0,00</div></div>
+    <div class="card kpi"><div class="label">Saídas Omie</div><div class="value bad" id="dreSaiO">R$ 0,00</div></div>
+    <div class="card kpi"><div class="label">Saídas Modelagem</div><div class="value bad" id="dreSaiM">R$ 0,00</div></div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="grid g2">
+    <div class="card"><h2>Resultado de Caixa</h2><table><thead><tr><th>Indicador</th><th class="right">Omie</th><th class="right">Modelagem</th><th class="right">Diferença</th></tr></thead><tbody id="tblDreResumo"></tbody></table></div>
+    <div class="card"><h2>Leitura do período</h2><div id="dreInsight" class="note"></div></div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="card"><div class="topbar"><div><h2>Categorias realizadas</h2><div class="muted">Comparação por nomenclatura original. Categorias diferentes entre Omie e Modelagem não impedem a conciliação de caixa.</div></div></div><div style="overflow:auto;max-height:60vh"><table><thead><tr><th>Categoria</th><th>Tipo</th><th class="right">Omie</th><th class="right">Modelagem</th><th class="right">Diferença</th></tr></thead><tbody id="tblDreCategorias"></tbody></table></div></div>
+</section>
+'''
+          if '<section id="dre" class="page">' not in s:
+            pos=s.find('<section id="transferencias" class="page">')
+            if pos<0: raise SystemExit('Não encontrei a seção transferencias para inserir DRE')
+            s=s[:pos]+section+'\n'+s[pos:]
+
+          fn=r'''function renderDRE(){
+            const m=getMonth();
+            if(typeof dreMes!=='undefined')dreMes.innerHTML=state.months.map(x=>`<option value="${x.month}" ${x.month===state.activeMonth?'selected':''}>${monthLabel(x.month)}</option>`).join('');
+            if(!m){if(typeof tblDreResumo!=='undefined')tblDreResumo.innerHTML='<tr><td colspan="4" class="muted">Nenhum período disponível.</td></tr>';if(typeof tblDreCategorias!=='undefined')tblDreCategorias.innerHTML='';return}
+            const month=state.activeMonth,om=state.normalized.omie.filter(x=>monthKeyFromDate(x.date)===month),mo=state.normalized.model.filter(x=>monthKeyFromDate(x.date)===month);
+            const sum=(rows,type)=>rows.filter(x=>x.type===type).reduce((a,x)=>a+x.value,0),oe=sum(om,'Entrada'),os=sum(om,'Saída'),me=sum(mo,'Entrada'),ms=sum(mo,'Saída'),ro=oe-os,rm=me-ms;
+            dreEntO.textContent=BRL(oe);dreEntM.textContent=BRL(me);dreSaiO.textContent=BRL(os);dreSaiM.textContent=BRL(ms);
+            const rows=[['Entradas',oe,me],['Saídas',os,ms],['Resultado líquido',ro,rm]];
+            tblDreResumo.innerHTML=rows.map(r=>`<tr><td><strong>${r[0]}</strong></td><td class="right">${BRL(r[1])}</td><td class="right">${BRL(r[2])}</td><td class="right ${Math.abs(r[1]-r[2])>.01?'bad':'ok'}">${BRL(r[1]-r[2])}</td></tr>`).join('');
+            const diff=ro-rm;dreInsight.innerHTML=`No período ${monthLabel(month)}, o resultado de caixa do Omie é <strong>${BRL(ro)}</strong> e o da Modelagem é <strong>${BRL(rm)}</strong>. A diferença líquida entre as bases é <strong class="${Math.abs(diff)>.01?'bad':'ok'}">${BRL(diff)}</strong>. Esta visão é de <strong>caixa realizado</strong>, não uma DRE contábil por competência.`;
+            const bucket=(rows)=>{const map=new Map();for(const x of rows){const cat=(x.category||x.desc||'SEM CATEGORIA').trim()||'SEM CATEGORIA',k=x.type+'|'+cat;if(!map.has(k))map.set(k,{type:x.type,cat,value:0});map.get(k).value+=x.value}return map},bo=bucket(om),bm=bucket(mo),keys=[...new Set([...bo.keys(),...bm.keys()])];
+            keys.sort((a,b)=>Math.abs((bo.get(b)?.value||0)-(bm.get(b)?.value||0))-Math.abs((bo.get(a)?.value||0)-(bm.get(a)?.value||0)));
+            tblDreCategorias.innerHTML=keys.length?keys.map(k=>{const o=bo.get(k)?.value||0,mv=bm.get(k)?.value||0,obj=bo.get(k)||bm.get(k);return`<tr><td>${ESC(obj.cat)}</td><td><span class="badge ${obj.type==='Entrada'?'b-ok':'b-bad'}">${obj.type}</span></td><td class="right">${BRL(o)}</td><td class="right">${BRL(mv)}</td><td class="right ${Math.abs(o-mv)>.01?'bad':'ok'}">${BRL(o-mv)}</td></tr>`}).join(''):'<tr><td colspan="5" class="muted">Sem lançamentos confirmados neste período.</td></tr>'
+          }
+'''
+          if 'function renderDRE()' not in s:
+            marker='function renderTransfer(){'
+            idx=s.find(marker)
+            if idx<0: raise SystemExit('Não encontrei renderTransfer')
+            s=s[:idx]+fn+'\n'+s[idx:]
+
+          s=s.replace('function renderAll(){renderSelectors();renderMonths();renderDashboard();renderDias();renderLancamentos();renderFiles();renderMap();renderTransfer()}', 'function renderAll(){renderSelectors();renderMonths();renderDashboard();renderDias();renderLancamentos();renderFiles();renderMap();renderDRE();renderTransfer()}',1)
+
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validar e publicar
+        run: |
+          grep -q 'data-page="dre"' index.html
+          grep -q '<section id="dre" class="page">' index.html
+          grep -q 'function renderDRE()' index.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Ativa DRE de Caixa e comparação gerencial'
+          git push origin main

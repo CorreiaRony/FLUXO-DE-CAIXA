@@ -1,0 +1,83 @@
+name: Ativar todos os módulos de análise
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/enable-all-analysis-modules.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ativar módulos
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          repl={
+          '<button class="soon" title="Disponível na Etapa 3"><span class="ico">◎</span><span class="nav-label">Central de Investigação</span></button>':'<button data-page="central"><span class="ico">◎</span><span class="nav-label">Central de Investigação</span></button>',
+          '<button class="soon" title="Disponível em etapa futura"><span class="ico">⧉</span><span class="nav-label">Duplicidades</span></button>':'<button data-page="duplicidades"><span class="ico">⧉</span><span class="nav-label">Duplicidades</span></button>',
+          '<button class="soon"><span class="ico">◒</span><span class="nav-label">Pareto / ABC</span></button>':'<button data-page="pareto"><span class="ico">◒</span><span class="nav-label">Pareto / ABC</span></button>',
+          '<button class="soon"><span class="ico">▥</span><span class="nav-label">DRE de Caixa</span></button>':'<button data-page="dre"><span class="ico">▥</span><span class="nav-label">DRE de Caixa</span></button>'
+          }
+          for a,b in repl.items(): s=s.replace(a,b)
+
+          sections='''\n<section id="central" class="page">\n  <div class="topbar"><div><h1>Central de Investigação</h1><div class="muted">Priorize as divergências com maior impacto financeiro</div></div></div>\n  <div class="grid g4">\n    <div class="card kpi"><div class="label">Pendências</div><div class="value" id="centralPend">0</div></div>\n    <div class="card kpi"><div class="label">Impacto bruto</div><div class="value bad" id="centralGross">R$ 0,00</div></div>\n    <div class="card kpi"><div class="label">Maior item</div><div class="value" id="centralTop">R$ 0,00</div></div>\n    <div class="card kpi"><div class="label">Período</div><div class="value" id="centralPeriodo">—</div></div>\n  </div>\n  <div style="height:14px"></div>\n  <div class="card"><h2>Investigue primeiro</h2><table><thead><tr><th>Data</th><th>Status</th><th>Contraparte</th><th>Documento</th><th class="right">Impacto</th><th>Ação</th></tr></thead><tbody id="tblCentral"></tbody></table></div>\n</section>\n\n<section id="duplicidades" class="page">\n  <div class="topbar"><div><h1>Duplicidades</h1><div class="muted">Possíveis lançamentos duplicados identificados nas bases confirmadas</div></div></div>\n  <div class="card"><table><thead><tr><th>Base</th><th>Data</th><th>Contraparte</th><th>Documento</th><th class="right">Valor</th><th>Status</th></tr></thead><tbody id="tblDuplicidades"></tbody></table></div>\n</section>\n\n<section id="pareto" class="page">\n  <div class="topbar"><div><h1>Pareto / ABC</h1><div class="muted">Ranking das divergências pelo impacto absoluto</div></div></div>\n  <div class="grid g3">\n    <div class="card kpi"><div class="label">Classe A</div><div class="value" id="paretoA">0</div></div>\n    <div class="card kpi"><div class="label">Classe B</div><div class="value" id="paretoB">0</div></div>\n    <div class="card kpi"><div class="label">Classe C</div><div class="value" id="paretoC">0</div></div>\n  </div>\n  <div style="height:14px"></div>\n  <div class="card"><table><thead><tr><th>#</th><th>Classe</th><th>Data</th><th>Status</th><th>Contraparte</th><th class="right">Impacto</th><th class="right">% Acum.</th></tr></thead><tbody id="tblPareto"></tbody></table></div>\n</section>\n'''
+          if '<section id="central" class="page">' not in s:
+              s=s.replace('</main>',sections+'\n</main>',1)
+
+          fn=r'''function pairImpact(p){
+  const signed=x=>x.type==='Entrada'?x.value:-x.value;
+  return p.oItems.reduce((a,x)=>a+signed(x),0)-p.mItems.reduce((a,x)=>a+signed(x),0)
+}
+function renderExtraModules(){
+  const month=state.activeMonth;
+  if(!month)return;
+  const analysis=getPeriodAnalysis(month),pending=analysis.pairs.filter(p=>!p.status.startsWith('CONCILIADO'));
+  const ranked=pending.map(p=>({p,impact:pairImpact(p),abs:Math.abs(pairImpact(p))})).sort((a,b)=>b.abs-a.abs);
+
+  if(typeof centralPend!=='undefined'){
+    centralPend.textContent=ranked.length;centralGross.textContent=BRL(ranked.reduce((a,x)=>a+x.abs,0));centralTop.textContent=BRL(ranked[0]?.abs||0);centralPeriodo.textContent=monthLabel(month);
+    tblCentral.innerHTML=ranked.length?ranked.slice(0,100).map(x=>{const p=x.p,item=p.o||p.m||{},date=p.anchorDate||item.date||'—';return`<tr class="clickable" onclick="openDay('${date}')"><td>${date}</td><td><span class="badge ${badge(p.status)}">${p.status}</span></td><td>${ESC(item.party||item.desc||'—')}</td><td>${ESC(item.doc||'—')}</td><td class="right bad">${BRL(x.impact)}</td><td><button class="action" onclick="event.stopPropagation();openDay('${date}')">Investigar</button></td></tr>`}).join(''):'<tr><td colspan="6" class="muted">Nenhuma pendência encontrada.</td></tr>'
+  }
+
+  if(typeof tblDuplicidades!=='undefined'){
+    const dups=analysis.pairs.filter(p=>p.status.includes('DUPLICIDADE'));
+    tblDuplicidades.innerHTML=dups.length?dups.map(p=>{const item=p.o||p.m||{},base=p.status.includes('OMIE')?'Omie':'Modelagem';return`<tr><td>${base}</td><td>${item.date||'—'}</td><td>${ESC(item.party||'—')}</td><td>${ESC(item.doc||'—')}</td><td class="right">${BRL(item.value||0)}</td><td><span class="badge b-warn">${p.status}</span></td></tr>`}).join(''):'<tr><td colspan="6" class="muted">Nenhuma possível duplicidade identificada.</td></tr>'
+  }
+
+  if(typeof tblPareto!=='undefined'){
+    const total=ranked.reduce((a,x)=>a+x.abs,0);let cum=0,a=0,b=0,c=0;
+    const rows=ranked.map((x,i)=>{cum+=x.abs;const pct=total?cum/total*100:0,cls=pct<=80?'A':pct<=95?'B':'C';if(cls==='A')a++;else if(cls==='B')b++;else c++;const item=x.p.o||x.p.m||{};return`<tr><td>${i+1}</td><td><span class="badge ${cls==='A'?'b-bad':cls==='B'?'b-warn':'b-muted'}">${cls}</span></td><td>${x.p.anchorDate||item.date||'—'}</td><td>${x.p.status}</td><td>${ESC(item.party||item.desc||'—')}</td><td class="right">${BRL(x.abs)}</td><td class="right">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td></tr>`});
+    paretoA.textContent=a;paretoB.textContent=b;paretoC.textContent=c;tblPareto.innerHTML=rows.join('')||'<tr><td colspan="7" class="muted">Nenhuma divergência para classificar.</td></tr>'
+  }
+}
+'''
+          if 'function renderExtraModules()' not in s:
+              s=s.replace('function bootstrap(){',fn+'\nfunction bootstrap(){',1)
+          if 'renderExtraModules();' not in s:
+              s=s.replace('function renderAll(){','function renderAll(){renderExtraModules();',1)
+
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validar
+        run: |
+          grep -q 'data-page="central"' index.html
+          grep -q 'data-page="duplicidades"' index.html
+          grep -q 'data-page="pareto"' index.html
+          grep -q 'data-page="dre"' index.html
+          grep -q 'function renderExtraModules()' index.html
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Ativa Central, Duplicidades, DRE e Pareto ABC'
+          git push origin main

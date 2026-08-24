@@ -1,0 +1,113 @@
+name: Empresa e Transferencias
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/company-transfer-filter.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar filtro por empresa e separar transferencias
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # Campo Empresa no automapeamento da Modelagem.
+          old="observation:bestCol(cols,['OBSERVACOES','OBSERVACAO']),type:bestCol(cols,aliases.type)}"
+          new="observation:bestCol(cols,['OBSERVACOES','OBSERVACAO']),company:bestCol(cols,['EMPRESA','RAZAO SOCIAL EMPRESA','MINHA EMPRESA']),type:bestCol(cols,aliases.type)}"
+          s=s.replace(old,new)
+
+          # Preservar empresa na normalizacao.
+          old2="account:String(r[mp.account]||''),observation:String(r[mp.observation]||''),original:"
+          new2="account:String(r[mp.account]||''),observation:String(r[mp.observation]||''),company:String(r[mp.company]||''),original:"
+          s=s.replace(old2,new2)
+
+          # Filtro global no topo.
+          oldbar='<div class="global-period" id="globalPeriod">Nenhum período</div>'
+          newbar='<div><div class="global-period" id="globalPeriod">Nenhum período</div><select id="companyFilter" onchange="setCompanyFilter(this.value)" style="margin-top:5px;height:30px;max-width:190px"><option value="">Todas as empresas</option></select></div>'
+          s=s.replace(oldbar,newbar,1)
+
+          helper=r'''function availableCompanies(){
+  const vals=[];
+  for(const key of ['modelCP','modelCR']){
+    const mp=state.maps[key]||{},col=mp.company;if(!col)continue;
+    for(const r of state.raw[key]||[]){const v=String(r[col]||'').trim();if(v)vals.push(v)}
+  }
+  return [...new Set(vals)].sort((a,b)=>a.localeCompare(b,'pt-BR'))
+}
+function currentCompany(){return state.companyFilter||''}
+function setCompanyFilter(v){state.companyFilter=v||'';localStorage.setItem('cc_company_filter',state.companyFilter);rebuild();ensurePeriodsFromImportedData();renderAll()}
+function renderCompanyFilter(){
+  if(typeof companyFilter==='undefined')return;
+  const companies=availableCompanies();
+  if(!state.companyFilter){const effect=companies.find(x=>NT(x).includes('EFFECT SPORT'));if(effect)state.companyFilter=effect}
+  companyFilter.innerHTML='<option value="">Todas as empresas</option>'+companies.map(x=>`<option value="${ESC(x)}" ${x===state.companyFilter?'selected':''}>${ESC(x)}</option>`).join('')
+}
+function isTransferRow(x){
+  const t=NT([x.category,x.desc,x.observation,x.party,x.project].join(' '));
+  return /TRANSFER|TRANSF ENTRE|APLICACAO|RESGATE/.test(t)
+}
+function operationalRows(rows){return rows.filter(x=>!isTransferRow(x))}
+function companyRows(rows){const c=currentCompany();return !c?rows:rows.filter(x=>x.side!=='Modelagem'||NT(x.company)===NT(c))}
+'''
+          if 'function availableCompanies()' not in s:
+            s=s.replace('function rebuild(){',helper+'\nfunction rebuild(){',1)
+
+          # Aplicar filtro na Modelagem no rebuild; Omie permanece base da empresa exportada.
+          old3="state.normalized.model=[...normalizeKey('modelCP','Saída','Modelagem'),...normalizeKey('modelCR','Entrada','Modelagem')];"
+          new3="state.normalized.model=companyRows([...normalizeKey('modelCP','Saída','Modelagem'),...normalizeKey('modelCR','Entrada','Modelagem')]);"
+          s=s.replace(old3,new3,1)
+
+          # Renderizar seletor em todo refresh.
+          s=s.replace('function renderAll(){','function renderAll(){renderCompanyFilter();',1)
+
+          # Melhorar tela Transferencias existente com comparacao exclusiva.
+          transferfn=r'''function transferRowsFor(side){return (side==='Omie'?state.normalized.omie:state.normalized.model).filter(x=>monthKeyFromDate(x.date)===state.activeMonth&&isTransferRow(x))}
+function transferPairs(){
+  const o=transferRowsFor('Omie'),m=transferRowsFor('Modelagem'),used=new Set(),out=[];
+  for(const a of o){let best=-1,score=999;for(let i=0;i<m.length;i++){if(used.has(i))continue;const b=m[i],vd=Math.abs(a.value-b.value);if(vd>0.02)continue;const [da,ma,ya]=a.date.split('/').map(Number),[db,mb,yb]=b.date.split('/').map(Number),dd=Math.abs((new Date(ya,ma-1,da)-new Date(yb,mb-1,db))/86400000);if(dd<=3&&dd<score){score=dd;best=i}}if(best>=0){used.add(best);const b=m[best];out.push({o:a,m:b,status:a.date===b.date?'CONCILIADO':'DATA DIFERENTE'})}else out.push({o:a,m:null,status:'SO OMIE'})}
+  m.forEach((b,i)=>{if(!used.has(i))out.push({o:null,m:b,status:'SO MODELAGEM'})});return out
+}
+function renderTransferComparison(){
+  if(typeof tblTransferencias==='undefined')return;
+  const pairs=transferPairs();
+  tblTransferencias.innerHTML=pairs.length?pairs.map(p=>{const a=p.o||{},b=p.m||{},v=(a.value||0)-(b.value||0);return`<tr><td>${a.date||b.date||'—'}</td><td>${ESC(a.account||'—')}</td><td>${ESC(b.account||'—')}</td><td class="right">${a.value?BRL(a.value):'—'}</td><td class="right">${b.value?BRL(b.value):'—'}</td><td class="right ${Math.abs(v)>.01?'bad':'ok'}">${BRL(v)}</td><td><span class="badge ${p.status==='CONCILIADO'?'b-ok':p.status==='DATA DIFERENTE'?'b-warn':'b-bad'}">${p.status}</span></td></tr>`}).join(''):'<tr><td colspan="7" class="muted">Nenhuma transferência identificada no período.</td></tr>'
+}
+'''
+          if 'function transferPairs()' not in s:
+            s=s.replace('function renderTransfer(){',transferfn+'\nfunction renderTransfer(){',1)
+
+          # Se a tabela antiga existir, troca o cabeçalho e tbody para a nova comparação.
+          import re
+          pat=re.compile(r'<section id="transferencias" class="page">.*?</section>',re.S)
+          mt=pat.search(s)
+          if mt:
+            section='''<section id="transferencias" class="page"><div class="topbar"><div><h1>Transferências</h1><div class="muted">Movimentações internas separadas do caixa operacional — Omie × Modelagem</div></div></div><div class="card"><div class="note" style="margin-bottom:12px">Transferências são analisadas separadamente para não distorcer receitas, despesas, DRE de Caixa e divergência operacional.</div><div style="overflow:auto"><table><thead><tr><th>Data</th><th>Conta Omie</th><th>Conta Modelagem</th><th class="right">Valor Omie</th><th class="right">Valor Modelagem</th><th class="right">Diferença</th><th>Status</th></tr></thead><tbody id="tblTransferencias"></tbody></table></div></div></section>'''
+            s=s[:mt.start()]+section+s[mt.end():]
+
+          # Chamar comparacao depois do render existente.
+          if 'renderTransferComparison();' not in s:
+            s=s.replace('function renderAll(){renderCompanyFilter();','function renderAll(){renderCompanyFilter();renderTransferComparison();',1)
+
+          # Restaurar filtro salvo ao carregar.
+          s=s.replace('function bootstrap(){','function bootstrap(){state.companyFilter=localStorage.getItem(\'cc_company_filter\')||\'\';',1)
+
+          p.write_text(s,encoding='utf-8')
+      - name: Validar e publicar
+        run: |
+          grep -q 'company:bestCol' index.html
+          grep -q 'function availableCompanies()' index.html
+          grep -q 'function transferPairs()' index.html
+          grep -q 'id="companyFilter"' index.html
+          grep -q 'id="tblTransferencias"' index.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Separa empresas da Modelagem e concilia transferencias'
+          git push origin main

@@ -1,0 +1,114 @@
+name: Corrigir importador Omie
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-omie-import.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Corrigir leitura dos relatórios Omie
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # 1) Recebimentos do Omie usam a coluna "Recebido" em alguns relatórios.
+          s = s.replace(
+              "value:['VALOR PAGO','VALOR RECEBIDO','VALOR DA BAIXA','VALOR PAGO RECEBIDO','VALOR']",
+              "value:['VALOR PAGO','RECEBIDO','VALOR RECEBIDO','VALOR DA BAIXA','VALOR PAGO RECEBIDO','VALOR']"
+          )
+
+          helpers = r'''function detectHeaderRow(matrix){
+            const known=[...aliases.date,...aliases.value,...aliases.party,...aliases.doc,'CATEGORIA','CONTA CORRENTE','PROJETO','ORIGEM','VALOR DA CONTA','VENCIMENTO','PREVISAO','EMISSAO','CNPJ CPF'];
+            let best={index:-1,score:-1,filled:0};
+            matrix.slice(0,20).forEach((row,index)=>{
+              const cells=(row||[]).map(v=>NT(v)).filter(Boolean),filled=cells.length;
+              let score=0;
+              cells.forEach(cell=>{if(known.some(k=>cell===NT(k)||cell.includes(NT(k))))score+=3;else if(/DATA|VALOR|CLIENTE|FORNECEDOR|DOCUMENTO|CATEGORIA|CONTA|PROJETO/.test(cell))score+=1});
+              if(score>best.score||(score===best.score&&filled>best.filled))best={index,score,filled};
+            });
+            return best.score>=6?best.index:-1
+          }
+          function uniqueHeaders(row){
+            const used={};return (row||[]).map((v,i)=>{let h=String(v??'').trim();if(!h)h=`COLUNA_${i+1}`;const base=h;used[base]=(used[base]||0)+1;return used[base]===1?base:`${base}_${used[base]}`})
+          }
+          function matrixToObjects(matrix,headerIndex){
+            const headers=uniqueHeaders(matrix[headerIndex]);
+            return matrix.slice(headerIndex+1).filter(row=>(row||[]).some(v=>String(v??'').trim()!=='')).map(row=>{const o={};headers.forEach((h,i)=>o[h]=row?.[i]??'');return o})
+          }
+          '''
+
+          if 'function detectHeaderRow(matrix)' not in s:
+              s = s.replace('function bestCol(cols,als){', helpers + '\nfunction bestCol(cols,als){', 1)
+
+          new_loader = r'''async function loadFiles(inp,key){
+            for(const file of [...inp.files]){
+              const ab=await file.arrayBuffer(),wb=XLSX.read(ab,{type:'array',cellDates:true});
+              let rows=[],sheet='',headerRowIndex=-1,cols=[];
+              for(const sn of wb.SheetNames){
+                const matrix=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false,dateNF:'dd/mm/yyyy'}),h=detectHeaderRow(matrix);
+                if(h<0)continue;
+                const candidate=matrixToObjects(matrix,h);
+                if(candidate.length>rows.length){rows=candidate;sheet=sn;headerRowIndex=h;cols=uniqueHeaders(matrix[h])}
+              }
+              const id=key+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+              state.files[key].push({id,name:file.name,rows:rows.length,cols,sheet,headerRow:headerRowIndex>=0?headerRowIndex+1:null,confirmed:false});
+              state.raw[key].push(...rows.map(r=>({...r,__file:id,__fileName:file.name})));
+              state.importStatus[id]={confirmed:false};
+            }
+            inp.value='';autoMapAll();renderFiles();rebuild()
+          }
+          '''
+
+          pattern = re.compile(r"async function loadFiles\(inp,key\)\{.*?\n\}\nfunction autoMapAll\(\)", re.S)
+          if not pattern.search(s):
+              raise SystemExit('Não encontrei a função loadFiles esperada; nenhuma alteração foi aplicada.')
+          s = pattern.sub(new_loader + '\nfunction autoMapAll()', s, count=1)
+
+          # Mostrar a linha do cabeçalho detectado no resumo do arquivo, quando disponível.
+          s = s.replace(
+              "${x.f.rows.toLocaleString('pt-BR')} linhas • ${ESC(x.f.sheet)} • ${v.period||'período não identificado'}",
+              "${x.f.rows.toLocaleString('pt-BR')} linhas • ${ESC(x.f.sheet)}${x.f.headerRow?` • cabeçalho linha ${x.f.headerRow}`:''} • ${v.period||'período não identificado'}"
+          )
+
+          # Também mostrar a informação no preview do mapeamento.
+          s = s.replace(
+              "${f.rows} linhas — ${v.period||'período não identificado'} — ${v.validRows} válidas / ${v.ignored} ignoradas",
+              "${f.rows} linhas${f.headerRow?` — cabeçalho linha ${f.headerRow}`:''} — ${v.period||'período não identificado'} — ${v.validRows} válidas / ${v.ignored} ignoradas"
+          )
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Verificar correção
+        run: |
+          grep -q "function detectHeaderRow(matrix)" index.html
+          grep -q "header:1" index.html
+          grep -q "'RECEBIDO'" index.html
+          grep -q "headerRow" index.html
+
+      - name: Commit da correção
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração necessária."
+            exit 0
+          fi
+          git commit -m "Corrige importação dos relatórios Omie"
+          git push origin main
